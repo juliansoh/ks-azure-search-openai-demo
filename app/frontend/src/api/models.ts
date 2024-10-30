@@ -34,6 +34,7 @@ export type ChatAppRequestOverrides = {
     use_gpt4v?: boolean;
     gpt4v_input?: GPT4VInput;
     vector_fields: VectorFieldOptions[];
+    index?: string; // Added the index property here
 };
 
 export type ResponseMessage = {
@@ -43,7 +44,7 @@ export type ResponseMessage = {
 
 export type Thoughts = {
     title: string;
-    description: any; // It can be any output from the api
+    description: any; // It can be any output from the API
     props?: { [key: string]: string };
 };
 

@@ -204,6 +204,12 @@ async def chat(auth_claims: Dict[str, Any]):
     request_json = await request.get_json()
     context = request_json.get("context", {})
     context["auth_claims"] = auth_claims
+
+    # Get the selected index from the request
+    selected_index = context.get("overrides", {}).get("index")
+    if not selected_index:
+        selected_index = os.environ["AZURE_SEARCH_INDEX"]  # Default index
+
     try:
         use_gpt4v = context.get("overrides", {}).get("use_gpt4v", False)
         approach: Approach
@@ -211,6 +217,20 @@ async def chat(auth_claims: Dict[str, Any]):
             approach = cast(Approach, current_app.config[CONFIG_CHAT_VISION_APPROACH])
         else:
             approach = cast(Approach, current_app.config[CONFIG_CHAT_APPROACH])
+
+        # Update the search client in the approach with the selected index
+        # Create a new SearchClient with the selected index
+        azure_credential = current_app.config[CONFIG_CREDENTIAL]
+        AZURE_SEARCH_SERVICE = os.environ["AZURE_SEARCH_SERVICE"]
+
+        search_client = SearchClient(
+            endpoint=f"https://{AZURE_SEARCH_SERVICE}.search.windows.net",
+            index_name=selected_index,
+            credential=azure_credential,
+        )
+
+        # Set the search client in the approach
+        approach.search_client = search_client
 
         result = await approach.run(
             request_json["messages"],
@@ -227,6 +247,34 @@ async def chat(auth_claims: Dict[str, Any]):
             return response
     except Exception as error:
         return error_response(error, "/chat")
+
+
+# Add the /indexes route to list available indexes
+@bp.route("/indexes", methods=["GET"])
+@authenticated
+async def list_indexes(auth_claims: Dict[str, Any]):
+    try:
+        # Get the Azure credential and search service name
+        azure_credential = current_app.config[CONFIG_CREDENTIAL]
+        AZURE_SEARCH_SERVICE = os.environ["AZURE_SEARCH_SERVICE"]
+
+        # Instantiate the SearchIndexClient
+        search_index_client = SearchIndexClient(
+            endpoint=f"https://{AZURE_SEARCH_SERVICE}.search.windows.net",
+            credential=azure_credential,
+        )
+
+        # List indexes
+        indexes = search_index_client.list_indexes()
+        index_names = []
+        async for index in indexes:
+            index_names.append(index.name)
+
+        await search_index_client.close()
+        return jsonify(index_names)
+    except Exception as e:
+        current_app.logger.exception("Exception in /indexes")
+        return jsonify({"error": str(e)}), 500
 
 
 # Send MSAL.js settings to the client UI
@@ -530,6 +578,7 @@ async def setup_clients():
     current_app.config[CONFIG_SEARCH_CLIENT] = search_client
     current_app.config[CONFIG_BLOB_CONTAINER_CLIENT] = blob_container_client
     current_app.config[CONFIG_AUTH_CLIENT] = auth_helper
+    current_app.config[CONFIG_CREDENTIAL] = azure_credential  # Add this line if not already present
 
     current_app.config[CONFIG_GPT4V_DEPLOYED] = bool(USE_GPT4V)
     current_app.config[CONFIG_SEMANTIC_RANKER_DEPLOYED] = AZURE_SEARCH_SEMANTIC_RANKER != "disabled"

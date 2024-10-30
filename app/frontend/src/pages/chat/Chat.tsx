@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect } from "react";
-import { Checkbox, Panel, DefaultButton, TextField, SpinButton, Slider } from "@fluentui/react";
+import { Checkbox, Panel, DefaultButton, TextField, SpinButton, Slider, Dropdown, IDropdownOption } from "@fluentui/react";
 import { SparkleFilled } from "@fluentui/react-icons";
 import readNDJSONStream from "ndjson-readablestream";
 
@@ -32,6 +32,7 @@ import { TokenClaimsDisplay } from "../../components/TokenClaimsDisplay";
 import { GPT4VSettings } from "../../components/GPT4VSettings";
 
 const Chat = () => {
+    // State variables
     const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
     const [promptTemplate, setPromptTemplate] = useState<string>("");
     const [temperature, setTemperature] = useState<number>(0.3);
@@ -49,6 +50,10 @@ const Chat = () => {
     const [useGroupsSecurityFilter, setUseGroupsSecurityFilter] = useState<boolean>(false);
     const [gpt4vInput, setGPT4VInput] = useState<GPT4VInput>(GPT4VInput.TextAndImages);
     const [useGPT4V, setUseGPT4V] = useState<boolean>(false);
+
+    // New state variables for index selection
+    const [availableIndexes, setAvailableIndexes] = useState<IDropdownOption[]>([]);
+    const [selectedIndex, setSelectedIndex] = useState<string>("texas-troubleshooter"); // Default index
 
     const lastQuestionRef = useRef<string>("");
     const chatMessageStreamEnd = useRef<HTMLDivElement | null>(null);
@@ -167,7 +172,8 @@ const Chat = () => {
                         use_groups_security_filter: useGroupsSecurityFilter,
                         vector_fields: vectorFieldList,
                         use_gpt4v: useGPT4V,
-                        gpt4v_input: gpt4vInput
+                        gpt4v_input: gpt4vInput,
+                        index: selectedIndex // Include selected index
                     }
                 },
                 // ChatAppProtocol: Client must pass on any session state received from the server
@@ -208,8 +214,25 @@ const Chat = () => {
 
     useEffect(() => chatMessageStreamEnd.current?.scrollIntoView({ behavior: "smooth" }), [isLoading]);
     useEffect(() => chatMessageStreamEnd.current?.scrollIntoView({ behavior: "auto" }), [streamedAnswers]);
+
+    // Fetch configuration and available indexes on component mount
     useEffect(() => {
         getConfig();
+        const fetchIndexes = async () => {
+            try {
+                const response = await fetch("/indexes");
+                const indexNames: string[] = await response.json();
+                const indexOptions: IDropdownOption[] = indexNames.map(indexName => ({
+                    key: indexName,
+                    text: indexName
+                }));
+                setAvailableIndexes(indexOptions);
+            } catch (error) {
+                console.error("Error fetching indexes:", error);
+            }
+        };
+
+        fetchIndexes();
     }, []);
 
     useEffect(() => {
@@ -300,6 +323,13 @@ const Chat = () => {
         }
 
         setSelectedAnswer(index);
+    };
+
+    // Handle index selection change
+    const onIndexChange = (_event: React.FormEvent<HTMLDivElement>, option?: IDropdownOption) => {
+        if (option) {
+            setSelectedIndex(option.key as string);
+        }
     };
 
     return (
@@ -403,6 +433,18 @@ const Chat = () => {
                         activeTab={activeAnalysisPanelTab}
                     />
                 )}
+
+                {/* Index Selection Dropdown */}
+                <div className={styles.indexSelector}>
+                    <Dropdown
+                        label="Select Index"
+                        selectedKey={selectedIndex}
+                        onChange={onIndexChange}
+                        placeholder="Select an index"
+                        options={availableIndexes}
+                        styles={{ dropdown: { width: 300 } }}
+                    />
+                </div>
 
                 <Panel
                     headerText="Configure answer generation"

@@ -2,12 +2,12 @@ import { Example } from "./Example";
 
 import styles from "./Example.module.css";
 
-const DEFAULT_EXAMPLES: string[] = ["What is a Sponsor?", "How can Providers, Sponsors, or Sate Workers attend a Webinar?", "What is KinderSmart?"];
+const DEFAULT_EXAMPLES: string[] = ["List Vendors with payments that total more than $3000", "Show items that cost more than $500?", "Top recurring items"];
 
 const GPT4V_EXAMPLES: string[] = [
-    "Compare the impact of interest rates and GDP in financial markets.",
-    "What is the expected trend for the S&P 500 index over the next five years? Compare it to the past S&P 500 performance",
-    "Can you identify any correlation between oil prices and stock market trends?"
+    "List vendors with payments that total more than $300 and the invoice numbers, check amounts, and dates",
+    "Items that cost more than $500 and the dates, Vendor, Vendor Number and invoices information",
+    "Top recurring items"
 ];
 
 interface Props {
